@@ -1,3 +1,29 @@
+#!/usr/bin/env python3
+
+# Copyright 2020 Thomas S Moberly
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files 
+# (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, 
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, 
+# subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+def get_forced_yn(question):
+    question = question + ' Please enter [y/n] without brackets.\n'
+    i = input(question)
+    while (i.lower() != 'y' and i.lower() != 'n'):
+        i = input('Invalid response. Please try again.\n' + question)
+    if(i.lower() == 'y'):
+        return True
+    else:
+        return False
+
 def is_float(float_string):
     try:
         float(float_string)
@@ -12,9 +38,9 @@ def compress_resistance(expanded):
         return str(expanded/1000) + 'K'
     return str(expanded)
 
-def expand_resistance(shorthand):
+def expand_resistance(shorthand, r_min, r_max):
     if(len(shorthand) == 0):
-        return -1
+        return -2
     mult = 1
     if shorthand[-1].lower() == 'm':
         mult = 1000000
@@ -24,6 +50,14 @@ def expand_resistance(shorthand):
         shorthand = shorthand[:-1]
     if not is_float(shorthand):
         return -1
+    else:
+        # print("Min, val, max: ",r_min,(float(shorthand)*mult),r_max)
+        if(r_min != -2):
+            if((float(shorthand)*mult) < r_min):
+                return -2
+        if(r_max != -2):
+            if((float(shorthand)*mult) > r_max):
+                return -2
     return float(shorthand)*mult
 
 def get_float_or_nothing(message):
@@ -34,7 +68,7 @@ def get_float_or_nothing(message):
         return None
     return float(i)
 
-def get_nearest_gain_vals(vals, gain, inverting):
+def get_nearest_gain_vals(vals, gain, inverting, overshoot):
     nearest_gain = -1
     nearest_rf = -1
     nearest_rin = -1
@@ -43,15 +77,17 @@ def get_nearest_gain_vals(vals, gain, inverting):
             if inverting:
                 this_gain = rf/rin
                 if abs(this_gain - gain) < abs(gain - nearest_gain):
-                    nearest_gain = this_gain
-                    nearest_rf = rf
-                    nearest_rin = rin
+                    if not overshoot or this_gain > gain:
+                        nearest_gain = this_gain
+                        nearest_rf = rf
+                        nearest_rin = rin
             else:
                 this_gain = (1+rf/rin)
                 if abs((this_gain) - gain) < abs(gain - nearest_gain):
-                    nearest_gain = this_gain
-                    nearest_rf = rf
-                    nearest_rin = rin
+                    if not overshoot or this_gain > gain:
+                        nearest_gain = this_gain
+                        nearest_rf = rf
+                        nearest_rin = rin
     return (nearest_gain, nearest_rf, nearest_rin)
 
 def op_amp_gain_calc():
@@ -72,15 +108,21 @@ def op_amp_gain_calc():
         i = input('Invalid response. Please enter one of the letters in brackets to choose.\nIs the amp [i]nverting or [n]on-inverting?\n')
     inverting = True if i.lower() == 'i' else False
 
+    r_min = input('If you would like to limit the MINIMUM resistor value, enter the min value now (example: 2.2k). Else leave line blank.\n')
+    r_max = input('If you would like to limit the MAXIMUM resistor value, enter the max value now (example: 680k). Else leave line blank.\n')
+    r_min = expand_resistance(r_min, -2, -2)
+    r_max = expand_resistance(r_max, -2, -2)
     expanded_vals = list()
     for val in vals:
-        expanded_val = expand_resistance(val)
-        if(expanded_val == -1):
-            print('Could not expand value and it will not be used:', val)
+        expanded_val = expand_resistance(val, r_min, r_max)
+        if(expanded_val < 0):
+            if(expanded_val == -1):
+                print('Could not expand value and it will not be used:', val)
         else:
             expanded_vals.append(expanded_val)
     
-    gain, rf, rin = get_nearest_gain_vals(expanded_vals, gain, inverting)
+    overshoot = get_forced_yn('If an exact match is not possible, does the gain need to be larger than the target?')
+    gain, rf, rin = get_nearest_gain_vals(expanded_vals, gain, inverting, overshoot)
     print('Nearest R_f =', compress_resistance(rf))
     print('Nearest R_in =', compress_resistance(rin))
     print('Nearest gain =', gain)

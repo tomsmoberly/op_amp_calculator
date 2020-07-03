@@ -1,4 +1,4 @@
-# Op Amp Calculator
+# Op Amp Resistor Calculator
 
 Calculates the resistors that should be used to most closely match a desired gain, based on a list of resistor values. I use this with a list of the available resistor values I have on hand so I can easily get close to the desired gain. An optional minimum and maximum resistor value can be set so that you don't use values that are too high or low to otherwise cause issues with your design.
 

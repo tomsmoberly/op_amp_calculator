@@ -68,7 +68,7 @@ def get_float_or_nothing(message):
         return None
     return float(i)
 
-def get_nearest_gain_vals(vals, gain, inverting, overshoot):
+def get_nearest_gain_vals(vals, gain, inverting, undershoot, overshoot):
     nearest_gain = -1
     nearest_rf = -1
     nearest_rin = -1
@@ -77,14 +77,14 @@ def get_nearest_gain_vals(vals, gain, inverting, overshoot):
             if inverting:
                 this_gain = rf/rin
                 if abs(this_gain - gain) < abs(gain - nearest_gain):
-                    if not overshoot or this_gain > gain:
+                    if (not overshoot or this_gain > gain) and (not undershoot or this_gain < gain):
                         nearest_gain = this_gain
                         nearest_rf = rf
                         nearest_rin = rin
             else:
                 this_gain = (1+rf/rin)
                 if abs((this_gain) - gain) < abs(gain - nearest_gain):
-                    if not overshoot or this_gain > gain:
+                    if (not overshoot or this_gain > gain) and (not undershoot or this_gain < gain):
                         nearest_gain = this_gain
                         nearest_rf = rf
                         nearest_rin = rin
@@ -121,8 +121,10 @@ def op_amp_gain_calc():
         else:
             expanded_vals.append(expanded_val)
     
-    overshoot = get_forced_yn('If an exact match is not possible, does the gain need to be larger than the target?')
-    gain, rf, rin = get_nearest_gain_vals(expanded_vals, gain, inverting, overshoot)
+    overshoot = get_forced_yn('If an exact match is not possible, does the gain need to be LARGER than the target?')
+    if not overshoot:
+        undershoot = get_forced_yn('If an exact match is not possible, does the gain need to be SMALLER than the target?')
+    gain, rf, rin = get_nearest_gain_vals(expanded_vals, gain, inverting, undershoot, overshoot)
     print('Nearest R_f =', compress_resistance(rf))
     print('Nearest R_in =', compress_resistance(rin))
     print('Nearest gain =', gain)
